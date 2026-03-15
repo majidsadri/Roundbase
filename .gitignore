@@ -1,0 +1,8 @@
+node_modules
+.next
+.env
+*.db
+public/uploads/*
+!public/uploads/.gitkeep
+src/generated/prisma
+tsconfig.tsbuildinfo

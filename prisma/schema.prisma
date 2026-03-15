@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Investor {
+  id        String   @id
+  name      String
+  firm      String   @default("")
+  role      String   @default("")
+  email     String   @default("")
+  linkedin  String   @default("")
+  checkSize String   @default("")
+  stage     String   @default("")
+  sectors   String   @default("[]") // JSON array
+  location  String   @default("")
+  introPath String   @default("")
+  notes     String   @default("")
+  source    String   @default("")
+  website   String   @default("")
+  createdAt String
+
+  pipelineEntries PipelineEntry[]
+}
+
+model Project {
+  id              String  @id
+  name            String
+  description     String  @default("")
+  stage           String  @default("")
+  deckUrl         String  @default("")
+  raiseAmount     String  @default("")
+  targetInvestors String  @default("")
+  sectors         String  @default("[]") // JSON array
+  location        String  @default("")
+  website         String  @default("")
+  createdAt       String
+
+  files           ProjectFile[]
+  pipelineEntries PipelineEntry[]
+}
+
+model ProjectFile {
+  id         String @id @default(cuid())
+  projectId  String
+  name       String
+  type       String // deck, pitch, onepager, financials, other
+  filePath   String // relative path under /uploads
+  uploadedAt String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model PipelineEntry {
+  id           String @id
+  projectId    String
+  investorId   String
+  stage        String // PipelineStage
+  notes        String @default("")
+  lastContact  String @default("")
+  nextFollowup String @default("")
+  meetingDate  String?
+  meetingNotes String?
+  createdAt    String
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  investor   Investor   @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  activities Activity[]
+}
+
+model Activity {
+  id         String  @id
+  pipelineId String
+  type       String // email, meeting, call, note, linkedin
+  date       String
+  notes      String  @default("")
+  subject    String?
+
+  pipelineEntry PipelineEntry @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+}
