@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Globe, Search, Download, ExternalLink, Loader2, ClipboardPaste, Link,
-  ChevronRight, Check, X, Upload, FileText, Star, ArrowLeft,
+  ChevronRight, Check, X, Upload, FileText, Star, ArrowLeft, Mail, Linkedin, Users,
+  Sparkles, Target, Building2, MapPin, DollarSign, ArrowRight,
 } from 'lucide-react';
 import { Investor, ParsedInvestor, Project } from '@/types';
 import {
@@ -11,6 +12,16 @@ import {
   parseNFXSignalTable, scoreInvestorMatch, extractSectors, extractStages,
   saveParsedInvestors, uid,
 } from '@/lib/store';
+import ProjectLogo from './ProjectLogo';
+
+interface TeamMember {
+  name: string;
+  role: string;
+  email: string;
+  linkedin: string;
+  bio: string;
+  imageUrl: string;
+}
 
 interface CrawlResult {
   url: string;
@@ -20,10 +31,12 @@ interface CrawlResult {
   emails: string[];
   linkedins: string[];
   domain: string;
+  teamMembers?: TeamMember[];
+  teamPageLinks?: string[];
 }
 
 export default function DiscoverPage() {
-  const [activeTab, setActiveTab] = useState<'nfx' | 'crawl' | 'lookup'>('nfx');
+  const [activeTab, setActiveTab] = useState<'nfx' | 'crawl' | 'lookup' | 'find'>('nfx');
   const [investorCount, setInvestorCount] = useState(0);
 
   useEffect(() => {
@@ -33,16 +46,17 @@ export default function DiscoverPage() {
   return (
     <div>
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-gray-200 mb-6">
+      <div className="flex gap-0 border-b border-gray-200/80 mb-5">
         {([
-          { key: 'nfx' as const, label: 'NFX Signal Import' },
-          { key: 'crawl' as const, label: 'Crawl VC Website' },
+          { key: 'nfx' as const, label: 'NFX Signal' },
+          { key: 'crawl' as const, label: 'Crawl Website' },
+          { key: 'find' as const, label: 'Find VCs' },
           { key: 'lookup' as const, label: 'Quick Lookup' },
         ]).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-sm border-b-2 transition-colors ${
+            className={`px-4 py-2 text-[13px] border-b-2 transition-colors ${
               activeTab === tab.key
                 ? 'border-gray-900 text-gray-900 font-medium'
                 : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -51,13 +65,14 @@ export default function DiscoverPage() {
             {tab.label}
           </button>
         ))}
-        <div className="ml-auto text-xs text-gray-400 self-center">
-          {investorCount} investors in database
+        <div className="ml-auto text-xs text-gray-400 self-center tabular-nums">
+          {investorCount} in database
         </div>
       </div>
 
       {activeTab === 'nfx' && <NFXSignalTab onImport={() => { getInvestors().then((inv) => setInvestorCount(inv.length)); }} />}
       {activeTab === 'crawl' && <CrawlTab onImport={() => { getInvestors().then((inv) => setInvestorCount(inv.length)); }} />}
+      {activeTab === 'find' && <FindVCsTab onImport={() => { getInvestors().then((inv) => setInvestorCount(inv.length)); }} />}
       {activeTab === 'lookup' && <LookupTab onImport={() => { getInvestors().then((inv) => setInvestorCount(inv.length)); }} />}
     </div>
   );
@@ -255,13 +270,16 @@ function NFXSignalTab({ onImport }: { onImport: () => void }) {
                 className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors group"
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900 text-sm">{project.name}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{project.description}</div>
+                  <div className="flex items-center gap-3">
+                    <ProjectLogo logoUrl={project.logoUrl} name={project.name} size="sm" />
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm">{project.name}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{project.description}</div>
                     <div className="flex gap-2 mt-1.5">
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px]">
                         {project.stage}
                       </span>
+                    </div>
                     </div>
                   </div>
                   <ChevronRight
@@ -612,9 +630,11 @@ function CrawlTab({ onImport }: { onImport: () => void }) {
   const [result, setResult] = useState<CrawlResult | null>(null);
   const [error, setError] = useState('');
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
+  const [savingAll, setSavingAll] = useState(false);
 
-  const handleCrawl = async () => {
-    if (!url.trim()) return;
+  const handleCrawl = async (crawlUrl?: string) => {
+    const targetUrl = crawlUrl || url.trim();
+    if (!targetUrl) return;
     setLoading(true);
     setError('');
     setResult(null);
@@ -623,27 +643,28 @@ function CrawlTab({ onImport }: { onImport: () => void }) {
       const res = await fetch('/api/crawl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: targetUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Crawl failed');
       } else {
         setResult(data);
+        if (crawlUrl) setUrl(crawlUrl);
       }
     } catch {
-      setError('Network error');
+      setError('Network error — the site may be blocking requests.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveInvestor = async (name: string, email: string, linkedin: string) => {
+  const handleSaveInvestor = async (name: string, role: string, email: string, linkedin: string) => {
     const inv: Investor = {
       id: uid(),
       name,
       firm: result?.title || result?.domain || '',
-      role: '',
+      role,
       email,
       linkedin,
       checkSize: '',
@@ -661,15 +682,40 @@ function CrawlTab({ onImport }: { onImport: () => void }) {
     onImport();
   };
 
+  const handleSaveAll = async () => {
+    if (!result) return;
+    setSavingAll(true);
+    const members = result.teamMembers || [];
+    for (const m of members) {
+      if (!savedNames.has(m.name)) {
+        await handleSaveInvestor(m.name, m.role, m.email, m.linkedin);
+      }
+    }
+    // Also save any LinkedIn profiles not already in team members
+    const teamLinkedins = new Set(members.map((m) => m.linkedin).filter(Boolean));
+    for (const li of result.linkedins) {
+      if (teamLinkedins.has(li)) continue;
+      const handle = li.split('/in/')[1] || li;
+      const displayName = handle.replace(/-/g, ' ');
+      if (!savedNames.has(displayName)) {
+        await handleSaveInvestor(displayName, '', '', li);
+      }
+    }
+    setSavingAll(false);
+  };
+
+  const totalFound = (result?.teamMembers?.length || 0) + (result?.linkedins?.length || 0) + (result?.emails?.length || 0);
+
   return (
-    <div className="max-w-2xl">
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
+    <div className="max-w-3xl">
+      {/* Search Bar */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-1">
           <Globe size={16} className="text-gray-500" />
           <h3 className="text-sm font-medium text-gray-900">Crawl VC Website</h3>
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          Enter a VC firm&apos;s website or team page to extract investor contact info.
+          Paste a VC firm&apos;s team or about page URL. We&apos;ll extract team members, LinkedIn profiles, and emails.
         </p>
 
         <div className="flex gap-2">
@@ -679,140 +725,649 @@ function CrawlTab({ onImport }: { onImport: () => void }) {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCrawl()}
-              placeholder="https://www.sequoiacap.com/people/"
-              className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-gray-400"
+              placeholder="https://a16z.com/about/ or any VC team page"
+              className="w-full pl-8 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200 transition-all"
             />
           </div>
           <button
-            onClick={handleCrawl}
+            onClick={() => handleCrawl()}
             disabled={loading || !url.trim()}
-            className="px-4 py-2 bg-gray-900 text-white text-sm rounded-md hover:bg-gray-800 disabled:opacity-30 transition-colors flex items-center gap-2"
+            className="px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
             {loading ? 'Crawling...' : 'Crawl'}
           </button>
         </div>
 
-        {error && <p className="mt-3 text-sm text-gray-600">{error}</p>}
+        {error && (
+          <div className="mt-3 flex items-start gap-2 px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+            <X size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
       </div>
+
+      {/* Quick Links */}
+      {!result && !loading && (
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <h4 className="text-xs font-medium text-gray-600 mb-3">Popular VC team pages</h4>
+            <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+              {[
+                { label: 'a16z — Team', url: 'https://a16z.com/about/' },
+                { label: 'Sequoia — People', url: 'https://www.sequoiacap.com/people/' },
+                { label: 'Greylock — Team', url: 'https://greylock.com/team/' },
+                { label: 'Benchmark — Team', url: 'https://www.benchmark.com/' },
+                { label: 'Accel — Team', url: 'https://www.accel.com/people' },
+                { label: 'Lightspeed — Team', url: 'https://lsvp.com/team/' },
+                { label: 'Bessemer — Team', url: 'https://www.bvp.com/team' },
+                { label: 'NEA — Team', url: 'https://www.nea.com/team' },
+                { label: 'Founders Fund — Team', url: 'https://foundersfund.com/team/' },
+                { label: 'Index Ventures — Team', url: 'https://www.indexventures.com/team' },
+                { label: 'General Catalyst — Team', url: 'https://www.generalcatalyst.com/team' },
+                { label: 'Khosla Ventures — Team', url: 'https://www.khoslaventures.com/team/' },
+                { label: 'First Round — Team', url: 'https://firstround.com/team/' },
+                { label: 'Y Combinator — People', url: 'https://www.ycombinator.com/people' },
+                { label: 'Union Square — Team', url: 'https://www.usv.com/team/' },
+                { label: 'Craft Ventures — Team', url: 'https://www.craftventures.com/team' },
+              ].map((s) => (
+                <button
+                  key={s.url}
+                  onClick={() => { setUrl(s.url); handleCrawl(s.url); }}
+                  className="w-full text-left flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                >
+                  <span className="text-sm text-gray-600 group-hover:text-gray-900">{s.label}</span>
+                  <ExternalLink size={12} className="text-gray-300 group-hover:text-gray-500" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+            <h4 className="text-xs font-medium text-gray-600 mb-3">Tips for best results</h4>
+            <ul className="text-xs text-gray-400 space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-gray-300 font-bold">1.</span>
+                Use the firm&apos;s <strong className="text-gray-500">/team</strong> or <strong className="text-gray-500">/people</strong> page for best results
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-gray-300 font-bold">2.</span>
+                Some sites use JS rendering — if no team found, try a different page
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-gray-300 font-bold">3.</span>
+                We auto-detect team page links — check the suggestions below results
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Results */}
       {result && (
         <div className="mt-4 space-y-3">
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-900">{result.title || result.domain}</h4>
-              <a
-                href={result.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <ExternalLink size={14} />
-              </a>
+          {/* Page Info Header */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">{result.title || result.domain}</h4>
+                {result.description && (
+                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{result.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={result.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <ExternalLink size={14} />
+                </a>
+              </div>
             </div>
-            {result.description && (
-              <p className="text-xs text-gray-500 mb-3">{result.description}</p>
-            )}
 
-            {result.emails.length > 0 && (
-              <div className="mb-3">
-                <p className="text-xs font-medium text-gray-600 mb-1">
-                  Emails found ({result.emails.length})
-                </p>
-                <div className="space-y-1">
-                  {result.emails.map((email) => (
-                    <div key={email} className="flex items-center justify-between py-1">
-                      <span className="text-sm font-mono text-gray-700">{email}</span>
-                      <button
-                        onClick={() =>
-                          handleSaveInvestor(
-                            email.split('@')[0].replace(/[._]/g, ' '),
-                            email,
-                            ''
-                          )
-                        }
-                        disabled={savedNames.has(email.split('@')[0].replace(/[._]/g, ' '))}
-                        className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                      >
-                        {savedNames.has(email.split('@')[0].replace(/[._]/g, ' '))
-                          ? 'Saved'
-                          : '+ Save'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            {/* Stats Bar */}
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Users size={12} />
+                <span className="font-medium">{result.teamMembers?.length || 0}</span> team members
               </div>
-            )}
-
-            {result.linkedins.length > 0 && (
-              <div className="mb-3">
-                <p className="text-xs font-medium text-gray-600 mb-1">
-                  LinkedIn profiles ({result.linkedins.length})
-                </p>
-                <div className="space-y-1">
-                  {result.linkedins.map((li) => {
-                    const handle = li.split('/in/')[1] || li;
-                    const displayName = handle.replace(/-/g, ' ');
-                    return (
-                      <div key={li} className="flex items-center justify-between py-1">
-                        <a
-                          href={li}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-gray-700 hover:underline"
-                        >
-                          {displayName}
-                        </a>
-                        <button
-                          onClick={() => handleSaveInvestor(displayName, '', li)}
-                          disabled={savedNames.has(displayName)}
-                          className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                        >
-                          {savedNames.has(displayName) ? 'Saved' : '+ Save'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Linkedin size={12} />
+                <span className="font-medium">{result.linkedins.length}</span> LinkedIn
               </div>
-            )}
-
-            {result.emails.length === 0 && result.linkedins.length === 0 && (
-              <p className="text-xs text-gray-400">No emails or LinkedIn profiles found on this page.</p>
-            )}
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Mail size={12} />
+                <span className="font-medium">{result.emails.length}</span> emails
+              </div>
+              {totalFound > 0 && (
+                <button
+                  onClick={handleSaveAll}
+                  disabled={savingAll}
+                  className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                >
+                  {savingAll ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  {savingAll ? 'Saving...' : 'Save All'}
+                </button>
+              )}
+            </div>
           </div>
 
-          <details className="bg-white border border-gray-200 rounded-lg">
-            <summary className="px-4 py-3 text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700">
-              Raw page content (preview)
+          {/* Team Members */}
+          {(result.teamMembers?.length || 0) > 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Team Members ({result.teamMembers!.length})
+                </h4>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {result.teamMembers!.map((member, idx) => (
+                  <div key={idx} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                    <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-400 font-medium text-sm">
+                      {member.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                        {member.linkedin && (
+                          <a href={member.linkedin} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-600">
+                            <Linkedin size={12} />
+                          </a>
+                        )}
+                      </div>
+                      {member.role && (
+                        <div className="text-xs text-gray-400 mt-0.5">{member.role}</div>
+                      )}
+                      {member.email && (
+                        <div className="text-xs text-gray-400 font-mono mt-0.5">{member.email}</div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleSaveInvestor(member.name, member.role, member.email, member.linkedin)}
+                      disabled={savedNames.has(member.name)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        savedNames.has(member.name)
+                          ? 'bg-green-50 text-green-600'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {savedNames.has(member.name) ? (
+                        <><Check size={12} /> Saved</>
+                      ) : (
+                        '+ Save'
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* LinkedIn Profiles (not in team members) */}
+          {result.linkedins.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  LinkedIn Profiles ({result.linkedins.length})
+                </h4>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {result.linkedins.map((li) => {
+                  const handle = li.split('/in/')[1]?.replace(/\/$/, '') || li;
+                  const displayName = handle.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                  return (
+                    <div key={li} className="px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                      <Linkedin size={14} className="text-blue-400 flex-shrink-0" />
+                      <a
+                        href={li}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 text-sm text-gray-700 hover:text-gray-900 hover:underline"
+                      >
+                        {displayName}
+                      </a>
+                      <button
+                        onClick={() => handleSaveInvestor(displayName, '', '', li)}
+                        disabled={savedNames.has(displayName)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          savedNames.has(displayName)
+                            ? 'bg-green-50 text-green-600'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {savedNames.has(displayName) ? (
+                          <><Check size={12} /> Saved</>
+                        ) : (
+                          '+ Save'
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Emails */}
+          {result.emails.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Email Addresses ({result.emails.length})
+                </h4>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {result.emails.map((email) => {
+                  const nameFromEmail = email.split('@')[0].replace(/[._]/g, ' ');
+                  return (
+                    <div key={email} className="px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                      <Mail size={14} className="text-gray-400 flex-shrink-0" />
+                      <span className="flex-1 text-sm font-mono text-gray-700">{email}</span>
+                      <button
+                        onClick={() => handleSaveInvestor(nameFromEmail, '', email, '')}
+                        disabled={savedNames.has(nameFromEmail)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          savedNames.has(nameFromEmail)
+                            ? 'bg-green-50 text-green-600'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {savedNames.has(nameFromEmail) ? (
+                          <><Check size={12} /> Saved</>
+                        ) : (
+                          '+ Save'
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* No results found */}
+          {totalFound === 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
+              <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full mb-2">
+                <Search size={18} className="text-gray-400" />
+              </div>
+              <p className="text-sm text-gray-600 mb-1">No team members found on this page</p>
+              <p className="text-xs text-gray-400">
+                This site might use JavaScript rendering. Try the firm&apos;s /team or /about page instead.
+              </p>
+            </div>
+          )}
+
+          {/* Suggested Team Pages */}
+          {(result.teamPageLinks?.length || 0) > 0 && (
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+              <h4 className="text-xs font-medium text-gray-600 mb-2">
+                Team pages detected on this site
+              </h4>
+              <div className="space-y-1.5">
+                {result.teamPageLinks!.map((link) => (
+                  <button
+                    key={link}
+                    onClick={() => { setUrl(link); handleCrawl(link); }}
+                    className="w-full text-left flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white transition-colors group"
+                  >
+                    <span className="text-xs text-gray-500 group-hover:text-gray-800 truncate">{link}</span>
+                    <ChevronRight size={12} className="text-gray-300 group-hover:text-gray-500 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Raw Content */}
+          <details className="bg-white border border-gray-200 rounded-xl">
+            <summary className="px-4 py-3 text-xs font-medium text-gray-400 cursor-pointer hover:text-gray-600">
+              View raw page content
             </summary>
             <div className="px-4 pb-4">
-              <pre className="text-xs text-gray-400 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+              <pre className="text-[11px] text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-3">
                 {result.textContent.slice(0, 3000)}
               </pre>
             </div>
           </details>
         </div>
       )}
+    </div>
+  );
+}
 
-      <div className="mt-4 bg-gray-50 border border-gray-100 rounded-lg p-4">
-        <h4 className="text-xs font-medium text-gray-600 mb-2">Try crawling</h4>
-        <div className="space-y-1.5">
-          {[
-            { label: 'NFX Signal — Investor directory', url: 'https://signal.nfx.com/investors' },
-            { label: 'Y Combinator — Companies page', url: 'https://www.ycombinator.com/companies' },
-          ].map((s) => (
-            <button
-              key={s.url}
-              onClick={() => setUrl(s.url)}
-              className="block text-xs text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {s.label}
-            </button>
-          ))}
+// ─── Quick Lookup ────────────────────────────────────────────────
+
+// ─── Find VCs for Project (AI-Powered) ──────────────────────────
+
+interface VCFirm {
+  name: string;
+  website: string;
+  teamPageUrl: string;
+  whyFit: string;
+  stage: string;
+  sectors: string[];
+  location: string;
+  notableInvestments: string[];
+  checkSize: string;
+}
+
+function FindVCsTab({ onImport }: { onImport: () => void }) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [firms, setFirms] = useState<VCFirm[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [crawling, setCrawling] = useState<string | null>(null);
+  const [crawledFirms, setCrawledFirms] = useState<Set<string>>(new Set());
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getProjects().then(setProjects);
+  }, []);
+
+  const handleFindVCs = async () => {
+    if (!selectedProject) return;
+    setLoading(true);
+    setError('');
+    setFirms([]);
+    setCrawledFirms(new Set());
+
+    try {
+      const existingInvestors = await getInvestors();
+      const existingFirms = Array.from(new Set(existingInvestors.map(i => i.firm).filter(Boolean)));
+
+      const res = await fetch('/api/discover-vcs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project: selectedProject, existingFirms }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setFirms(data.firms || []);
+      }
+    } catch {
+      setError('Failed to find VCs. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  const handleCrawlFirm = async (firm: VCFirm) => {
+    setCrawling(firm.name);
+    try {
+      const crawlUrl = firm.teamPageUrl || firm.website;
+      const res = await fetch('/api/crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: crawlUrl }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const members = data.teamMembers || [];
+        let savedCount = 0;
+
+        for (const member of members) {
+          const inv: Investor = {
+            id: uid(),
+            name: member.name,
+            firm: firm.name,
+            role: member.role || '',
+            email: member.email || '',
+            linkedin: member.linkedin || '',
+            checkSize: firm.checkSize || '',
+            stage: firm.stage || '',
+            sectors: firm.sectors || [],
+            location: firm.location || '',
+            introPath: '',
+            notes: `${firm.whyFit}\nNotable investments: ${(firm.notableInvestments || []).join(', ')}`,
+            source: `AI Discovery: ${firm.website}`,
+            website: firm.website || '',
+            createdAt: new Date().toISOString(),
+          };
+          await saveInvestor(inv);
+          savedCount++;
+        }
+
+        // If no team members found, save the firm as a single entry
+        if (savedCount === 0) {
+          const inv: Investor = {
+            id: uid(),
+            name: firm.name,
+            firm: firm.name,
+            role: 'Firm',
+            email: '',
+            linkedin: '',
+            checkSize: firm.checkSize || '',
+            stage: firm.stage || '',
+            sectors: firm.sectors || [],
+            location: firm.location || '',
+            introPath: '',
+            notes: `${firm.whyFit}\nTeam page: ${firm.teamPageUrl}\nNotable investments: ${(firm.notableInvestments || []).join(', ')}`,
+            source: `AI Discovery`,
+            website: firm.website || '',
+            createdAt: new Date().toISOString(),
+          };
+          await saveInvestor(inv);
+          savedCount = 1;
+        }
+
+        setCrawledFirms(prev => { const next = new Set(Array.from(prev)); next.add(firm.name); return next; });
+        onImport();
+      }
+    } catch {
+      // silently fail
+    }
+    setCrawling(null);
+  };
+
+  const handleCrawlAll = async () => {
+    for (const firm of firms) {
+      if (!crawledFirms.has(firm.name)) {
+        await handleCrawlFirm(firm);
+      }
+    }
+  };
+
+  // Project selection
+  if (!selectedProject) {
+    return (
+      <div className="max-w-3xl">
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles size={16} className="text-gray-500" />
+            <h3 className="text-sm font-medium text-gray-900">AI-Powered VC Discovery</h3>
+          </div>
+          <p className="text-xs text-gray-400 mb-5">
+            Select a project and we&apos;ll use AI to find the best matching VC firms, then crawl their team pages to import investors.
+          </p>
+
+          <div className="space-y-2">
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelectedProject(p)}
+                className="w-full text-left flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all"
+              >
+                <ProjectLogo logoUrl={p.logoUrl} name={p.name} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-900">{p.name}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 truncate">{p.description}</div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px]">{p.stage}</span>
+                  <ChevronRight size={14} className="text-gray-300" />
+                </div>
+              </button>
+            ))}
+            {projects.length === 0 && (
+              <div className="text-center py-8 text-gray-400">
+                <Target size={24} className="mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No projects yet. Create a project first.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+    );
+  }
+
+  // Results view
+  return (
+    <div className="max-w-4xl">
+      <button
+        onClick={() => { setSelectedProject(null); setFirms([]); setError(''); }}
+        className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 mb-4"
+      >
+        <ArrowLeft size={14} />
+        Back to projects
+      </button>
+
+      {/* Project header + search */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ProjectLogo logoUrl={selectedProject.logoUrl} name={selectedProject.name} size="md" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">{selectedProject.name}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-gray-400">{selectedProject.stage}</span>
+                {selectedProject.raiseAmount && (
+                  <>
+                    <span className="text-gray-200">&middot;</span>
+                    <span className="text-xs text-gray-400">{selectedProject.raiseAmount}</span>
+                  </>
+                )}
+                {selectedProject.sectors?.length > 0 && (
+                  <>
+                    <span className="text-gray-200">&middot;</span>
+                    <span className="text-xs text-gray-400">{selectedProject.sectors.slice(0, 3).join(', ')}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleFindVCs}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {loading ? 'Finding VCs...' : firms.length > 0 ? 'Find More VCs' : 'Find Matching VCs'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600">{error}</div>
+      )}
+
+      {loading && (
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <Loader2 size={28} className="mx-auto mb-3 text-gray-300 animate-spin" />
+          <p className="text-sm font-medium text-gray-900">Finding the best VCs for {selectedProject.name}...</p>
+          <p className="text-xs text-gray-400 mt-1">Analyzing stage, sectors, and fit</p>
+        </div>
+      )}
+
+      {/* Firm Results */}
+      {firms.length > 0 && !loading && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">{firms.length} VC firms found</p>
+            <button
+              onClick={handleCrawlAll}
+              disabled={crawling !== null || crawledFirms.size === firms.length}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            >
+              <Download size={12} />
+              Crawl & Import All
+            </button>
+          </div>
+
+          {firms.map((firm, idx) => (
+            <div
+              key={idx}
+              className={`bg-white border rounded-xl p-5 transition-all ${
+                crawledFirms.has(firm.name) ? 'border-green-200 bg-green-50/30' : 'border-gray-200'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Building2 size={14} className="text-gray-400 flex-shrink-0" />
+                    <h4 className="text-sm font-semibold text-gray-900">{firm.name}</h4>
+                    {crawledFirms.has(firm.name) && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-medium">
+                        <Check size={10} /> Imported
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">{firm.whyFit}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    {firm.stage && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                        <Target size={9} /> {firm.stage}
+                      </span>
+                    )}
+                    {firm.checkSize && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                        <DollarSign size={9} /> {firm.checkSize}
+                      </span>
+                    )}
+                    {firm.location && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                        <MapPin size={9} /> {firm.location}
+                      </span>
+                    )}
+                  </div>
+                  {firm.sectors?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {firm.sectors.slice(0, 5).map(s => (
+                        <span key={s} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">{s}</span>
+                      ))}
+                    </div>
+                  )}
+                  {firm.notableInvestments?.length > 0 && (
+                    <p className="text-[11px] text-gray-400 mt-2">
+                      Portfolio: {firm.notableInvestments.slice(0, 4).join(', ')}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  {firm.website && (
+                    <a
+                      href={firm.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+                    >
+                      <Globe size={11} /> Website
+                    </a>
+                  )}
+                  {!crawledFirms.has(firm.name) && (
+                    <button
+                      onClick={() => handleCrawlFirm(firm)}
+                      disabled={crawling !== null}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                    >
+                      {crawling === firm.name ? (
+                        <><Loader2 size={11} className="animate-spin" /> Crawling...</>
+                      ) : (
+                        <><ArrowRight size={11} /> Crawl & Import</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

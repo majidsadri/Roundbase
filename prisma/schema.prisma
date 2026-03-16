@@ -38,6 +38,7 @@ model Project {
   sectors         String  @default("[]") // JSON array
   location        String  @default("")
   website         String  @default("")
+  logoUrl         String  @default("") // URL or local path to project logo
   createdAt       String
 
   files           ProjectFile[]

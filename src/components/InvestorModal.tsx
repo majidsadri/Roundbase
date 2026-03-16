@@ -53,16 +53,16 @@ export default function InvestorModal({ investor, onSave, onClose }: Props) {
         value={form[key] as string}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
         placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-0 outline-none"
       />
     </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">{investor ? 'Edit Investor' : 'Add Investor'}</h2>
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-200/60">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-900">{investor ? 'Edit Investor' : 'Add Investor'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
@@ -87,7 +87,7 @@ export default function InvestorModal({ investor, onSave, onClose }: Props) {
               value={sectorsInput}
               onChange={(e) => setSectorsInput(e.target.value)}
               placeholder="Consumer, AI, SaaS"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-0 outline-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -101,13 +101,13 @@ export default function InvestorModal({ investor, onSave, onClose }: Props) {
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Meeting notes, preferences..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-0 outline-none resize-none"
             />
           </div>
           <div className="flex gap-2 pt-2">
             <button
               type="submit"
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="flex-1 bg-gray-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               {investor ? 'Save Changes' : 'Add Investor'}
             </button>

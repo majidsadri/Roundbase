@@ -12,6 +12,8 @@ import {
   getRecommendedInvestors, savePipelineEntry, uploadFile, deleteFile,
 } from '@/lib/store';
 import InvestorDrawer from './InvestorDrawer';
+import ProjectLogo from './ProjectLogo';
+import PitchDeckSection from './PitchDeckSection';
 
 const FILE_TYPES = [
   { value: 'deck', label: 'Pitch Deck' },
@@ -45,7 +47,11 @@ export default function ProjectsPage() {
     raiseAmount: '', targetInvestors: '', sectors: '', location: '', website: '',
   });
   const [pendingFiles, setPendingFiles] = useState<{ file: File; type: string }[]>([]);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [fetchingLogo, setFetchingLogo] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
   const [uploadFileType, setUploadFileType] = useState('deck');
   const [drawerInvestor, setDrawerInvestor] = useState<Investor | null>(null);
   const [pipelineCounts, setPipelineCounts] = useState<Map<string, number>>(new Map());
@@ -72,6 +78,8 @@ export default function ProjectsPage() {
       raiseAmount: '', targetInvestors: '', sectors: '', location: '', website: '',
     });
     setPendingFiles([]);
+    setLogoPreview('');
+    setLogoFile(null);
   };
 
   const handleSave = async () => {
@@ -90,11 +98,40 @@ export default function ProjectsPage() {
       sectors,
       location: form.location,
       website: form.website,
+      logoUrl: logoPreview && !logoPreview.startsWith('data:') ? logoPreview : (editing?.logoUrl || ''),
       files: editing?.files || [],
       createdAt: editing?.createdAt || new Date().toISOString(),
     };
 
     await saveProject(projectData);
+
+    // Upload logo if selected
+    if (logoFile) {
+      const reader = new FileReader();
+      const logoData = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(logoFile);
+      });
+      const logoRes = await fetch('/api/projects/logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, logoData, fileName: logoFile.name }),
+      });
+      const logoResult = await logoRes.json();
+      if (logoResult.logoUrl) {
+        await saveProject({ ...projectData, logoUrl: logoResult.logoUrl });
+      }
+    } else if (logoPreview === '' && editing?.logoUrl) {
+      // User removed the logo
+      await saveProject({ ...projectData, logoUrl: '' });
+    } else if (!editing?.logoUrl && form.website) {
+      // Auto-fetch logo from website on first create
+      fetch('/api/projects/logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: form.website, projectId }),
+      }).catch(() => {});
+    }
 
     // Upload pending files
     for (const pf of pendingFiles) {
@@ -122,6 +159,38 @@ export default function ProjectsPage() {
       website: p.website || '',
     });
     setPendingFiles([]);
+    setLogoPreview(p.logoUrl || '');
+    setLogoFile(null);
+  };
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setLogoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleFetchLogo = async () => {
+    if (!form.website) return;
+    setFetchingLogo(true);
+    try {
+      const projectId = editing?.id || 'temp';
+      const res = await fetch('/api/projects/logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: form.website, projectId }),
+      });
+      const data = await res.json();
+      if (data.logoUrl) {
+        setLogoPreview(data.logoUrl);
+        setLogoFile(null); // Clear any manually selected file
+      }
+    } catch { /* ignore */ }
+    setFetchingLogo(false);
   };
 
   const handleDeleteFile = async (project: Project, fileIdx: number) => {
@@ -174,9 +243,12 @@ export default function ProjectsPage() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
           <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{project.name}</h2>
-              <p className="text-sm text-gray-500 mt-1">{project.description}</p>
+            <div className="flex items-center gap-4">
+              <ProjectLogo logoUrl={project.logoUrl} name={project.name} size="lg" />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">{project.name}</h2>
+                <p className="text-sm text-gray-500 mt-1">{project.description}</p>
+              </div>
             </div>
             <button
               onClick={() => startEdit(project)}
@@ -335,6 +407,13 @@ export default function ProjectsPage() {
           )}
         </div>
 
+        {/* Pitch Deck Generator */}
+        <PitchDeckSection project={project} onFileSaved={async () => {
+          await reload();
+          const updated = (await getProjects()).find((p) => p.id === project.id);
+          if (updated) setSelectedProject(updated);
+        }} />
+
         {/* Recommended Investors */}
         <RecommendedInvestorsSection
           project={project}
@@ -384,9 +463,7 @@ export default function ProjectsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <FolderOpen size={20} className="text-gray-600" />
-                  </div>
+                  <ProjectLogo logoUrl={p.logoUrl} name={p.name} size="md" />
                   <div>
                     <h3 className="text-base font-semibold text-gray-900">{p.name}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -451,6 +528,59 @@ export default function ProjectsPage() {
             </div>
 
             <div className="space-y-3">
+              {/* Logo Picker */}
+              <div className="flex items-center gap-4">
+                <input
+                  ref={logoRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => logoRef.current?.click()}
+                  className="relative group"
+                >
+                  {logoPreview ? (
+                    <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-gray-200 group-hover:border-gray-400 transition-colors bg-white flex items-center justify-center">
+                      <img src={logoPreview} alt="Logo" className="w-full h-full object-contain p-1" />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 group-hover:border-gray-400 flex flex-col items-center justify-center transition-colors bg-gray-50">
+                      <Upload size={16} className="text-gray-400" />
+                      <span className="text-[10px] text-gray-400 mt-0.5">Logo</span>
+                    </div>
+                  )}
+                </button>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700">Project Logo</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Upload an image or auto-fetch from website</p>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {form.website && (
+                      <button
+                        type="button"
+                        onClick={handleFetchLogo}
+                        disabled={fetchingLogo}
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                      >
+                        {fetchingLogo ? <Loader2 size={11} className="animate-spin" /> : <Globe size={11} />}
+                        {fetchingLogo ? 'Fetching...' : logoPreview ? 'Re-fetch from website' : 'Fetch from website'}
+                      </button>
+                    )}
+                    {logoPreview && (
+                      <button
+                        type="button"
+                        onClick={() => { setLogoPreview(''); setLogoFile(null); }}
+                        className="text-xs text-red-400 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
                 <input
@@ -638,17 +768,25 @@ function RecommendedInvestorsSection({
   const [mode, setMode] = useState<'local' | 'ai'>('local');
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [allInvestors, setAllInvestors] = useState<Investor[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     (async () => {
-      const [recs, inv] = await Promise.all([
-        getRecommendedInvestors(project.id, 20),
-        getInvestors(),
-      ]);
-      setRecommendations(recs);
-      setAllInvestors(inv);
-      setAiMatches(null);
-      setAddedIds(new Set());
+      try {
+        const [recs, inv] = await Promise.all([
+          getRecommendedInvestors(project.id, 20),
+          getInvestors(),
+        ]);
+        setRecommendations(recs);
+        setAllInvestors(inv);
+        setAiMatches(null);
+        setAddedIds(new Set());
+      } catch (err) {
+        console.error('Failed to load recommendations:', err);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [project.id]);
 
@@ -762,7 +900,12 @@ function RecommendedInvestorsSection({
         )}
       </div>
 
-      {displayList.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8">
+          <Loader2 size={24} className="mx-auto mb-2 text-gray-300 animate-spin" />
+          <p className="text-sm text-gray-400">Finding matches...</p>
+        </div>
+      ) : displayList.length === 0 ? (
         <div className="text-center py-8">
           <Users size={28} className="mx-auto mb-2 text-gray-200" />
           <p className="text-sm text-gray-400">

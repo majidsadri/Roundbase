@@ -43,35 +43,34 @@ export default function DashboardPage() {
   });
 
   const stats = [
-    { label: 'Total Investors', value: investors.length, icon: <Users size={18} />, accent: 'bg-blue-50 text-blue-600' },
-    { label: 'In Pipeline', value: pipeline.length, icon: <Kanban size={18} />, accent: 'bg-violet-50 text-violet-600' },
-    { label: 'Overdue', value: overdue.length, icon: <AlertCircle size={18} />, accent: overdue.length > 0 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600' },
-    { label: 'Projects', value: projects.length, icon: <TrendingUp size={18} />, accent: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Investors', value: investors.length, icon: <Users size={16} /> },
+    { label: 'In Pipeline', value: pipeline.length, icon: <Kanban size={16} /> },
+    { label: 'Overdue', value: overdue.length, icon: <AlertCircle size={16} />, warn: overdue.length > 0 },
+    { label: 'Projects', value: projects.length, icon: <TrendingUp size={16} /> },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
+          <div key={s.label} className="bg-white rounded-lg border border-gray-200/60 px-5 py-4">
             <div className="flex items-center justify-between mb-3">
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${s.accent}`}>
-                {s.icon}
-              </div>
+              <span className="text-gray-400">{s.icon}</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{s.value}</p>
+            <p className="text-2xl font-semibold text-gray-900 tabular-nums">{s.value}</p>
             <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-2 gap-4">
         {/* Overdue Follow-ups */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <h3 className="text-[13px] font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
+        <div className="bg-white rounded-lg border border-gray-200/60 p-5">
+          <h3 className="text-[13px] font-medium text-gray-900 mb-4 flex items-center gap-2">
+            {overdue.length > 0 && <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />}
             Overdue Follow-ups
+            {overdue.length > 0 && <span className="text-xs text-gray-400 font-normal ml-auto">{overdue.length}</span>}
           </h3>
           {overdue.length === 0 ? (
             <div className="py-8 text-center">
@@ -86,7 +85,7 @@ export default function DashboardPage() {
                   (Date.now() - new Date(e.nextFollowup).getTime()) / 86400000
                 );
                 return (
-                  <div key={e.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                  <div key={e.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{inv.name}</p>
                       <p className="text-xs text-gray-400">{inv.firm}</p>
@@ -95,7 +94,7 @@ export default function DashboardPage() {
                       <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${STAGE_COLORS[e.stage as PipelineStage]}`}>
                         {STAGE_LABELS[e.stage as PipelineStage]}
                       </span>
-                      <span className="text-[11px] text-red-400 font-medium w-12 text-right">{daysLate}d late</span>
+                      <span className="text-[11px] text-red-400 font-medium w-12 text-right tabular-nums">{daysLate}d late</span>
                     </div>
                   </div>
                 );
@@ -105,10 +104,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Upcoming */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <h3 className="text-[13px] font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+        <div className="bg-white rounded-lg border border-gray-200/60 p-5">
+          <h3 className="text-[13px] font-medium text-gray-900 mb-4 flex items-center gap-2">
             Upcoming Follow-ups
+            {upcoming.length > 0 && <span className="text-xs text-gray-400 font-normal ml-auto">{upcoming.length}</span>}
           </h3>
           {upcoming.length === 0 ? (
             <div className="py-8 text-center">
@@ -123,7 +122,7 @@ export default function DashboardPage() {
                   (new Date(e.nextFollowup).getTime() - Date.now()) / 86400000
                 );
                 return (
-                  <div key={e.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                  <div key={e.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{inv.name}</p>
                       <p className="text-xs text-gray-400">{inv.firm}</p>
@@ -132,7 +131,7 @@ export default function DashboardPage() {
                       <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${STAGE_COLORS[e.stage as PipelineStage]}`}>
                         {STAGE_LABELS[e.stage as PipelineStage]}
                       </span>
-                      <span className="text-[11px] text-blue-500 font-medium w-12 text-right">
+                      <span className="text-[11px] text-gray-500 font-medium w-12 text-right tabular-nums">
                         {daysUntil === 0 ? 'Today' : `${daysUntil}d`}
                       </span>
                     </div>
@@ -145,21 +144,21 @@ export default function DashboardPage() {
       </div>
 
       {/* Pipeline breakdown */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5">
-        <h3 className="text-[13px] font-semibold text-gray-900 mb-4">Pipeline Breakdown</h3>
+      <div className="bg-white rounded-lg border border-gray-200/60 p-5">
+        <h3 className="text-[13px] font-medium text-gray-900 mb-4">Pipeline Breakdown</h3>
         <div className="flex gap-2">
           {(Object.keys(STAGE_LABELS) as PipelineStage[]).map((stage) => {
             const count = stageCount[stage] || 0;
             const total = pipeline.length || 1;
             const pct = Math.round((count / total) * 100);
             return (
-              <div key={stage} className="flex-1 text-center group">
-                <div className={`py-3 rounded-lg ${STAGE_COLORS[stage]} transition-transform group-hover:scale-105`}>
-                  <p className="text-xl font-bold">{count}</p>
+              <div key={stage} className="flex-1 text-center">
+                <div className={`py-3 rounded-md ${STAGE_COLORS[stage]}`}>
+                  <p className="text-lg font-semibold tabular-nums">{count}</p>
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1.5 font-medium">{STAGE_LABELS[stage]}</p>
                 {pipeline.length > 0 && (
-                  <p className="text-[10px] text-gray-300">{pct}%</p>
+                  <p className="text-[10px] text-gray-300 tabular-nums">{pct}%</p>
                 )}
               </div>
             );

@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, GripVertical, Calendar, Mail, Linkedin,
-  Clock, DollarSign, Video, X, ArrowRight,
+  Clock, DollarSign, Video, X, ArrowRight, ChevronDown,
+  Users,
 } from 'lucide-react';
 import {
   PipelineStage,
   PipelineEntry,
   Investor,
   Activity,
+  Project,
   STAGE_LABELS,
   STAGE_COLORS,
 } from '@/types';
@@ -22,6 +24,7 @@ import {
   uid,
 } from '@/lib/store';
 import InvestorDrawer from './InvestorDrawer';
+import ProjectLogo from './ProjectLogo';
 
 const PIPELINE_STAGES: PipelineStage[] = [
   'researching',
@@ -37,7 +40,7 @@ export default function PipelinePage() {
   const [entries, setEntries] = useState<PipelineEntry[]>([]);
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [projectId, setProjectId] = useState('jeeb');
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [addingTo, setAddingTo] = useState<PipelineStage | null>(null);
   const [selectedInvestorId, setSelectedInvestorId] = useState('');
   const [dragItem, setDragItem] = useState<string | null>(null);
@@ -163,48 +166,103 @@ export default function PipelinePage() {
   const pipelineInvestorIds = new Set(entries.map((e) => e.investorId));
   const availableInvestors = investors.filter((i) => !pipelineInvestorIds.has(i.id));
 
+  const activeProject = projects.find((p) => p.id === projectId);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+
+  // Stage summary stats
+  const stageSummary = PIPELINE_STAGES.reduce((acc, stage) => {
+    acc[stage] = entries.filter((e) => e.stage === stage).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const activeCount = entries.filter((e) => e.stage !== 'closed' && e.stage !== 'passed').length;
+
   return (
     <div>
-      {/* Project selector */}
-      <div className="flex items-center gap-3 mb-4">
-        <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none"
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <span className="text-sm text-gray-400">
-          {entries.length} investor{entries.length !== 1 ? 's' : ''} in pipeline
-        </span>
+      {/* Project selector + Pipeline stats bar */}
+      <div className="bg-white rounded-lg border border-gray-200/60 px-4 py-3 mb-4">
+        <div className="flex items-center justify-between">
+          {/* Project picker */}
+          <div className="relative">
+            <button
+              onClick={() => setProjectPickerOpen(!projectPickerOpen)}
+              className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors -ml-2"
+            >
+              <ProjectLogo logoUrl={activeProject?.logoUrl} name={activeProject?.name || 'P'} size="sm" />
+              <div className="text-left">
+                <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                  {activeProject?.name || 'Select Project'}
+                  <ChevronDown size={13} className={`text-gray-400 transition-transform ${projectPickerOpen ? 'rotate-180' : ''}`} />
+                </div>
+                {activeProject && (
+                  <div className="text-[11px] text-gray-400">
+                    {activeProject.stage}
+                    {activeProject.raiseAmount && ` · ${activeProject.raiseAmount}`}
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {projectPickerOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setProjectPickerOpen(false)} />
+                <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[220px]">
+                  {projects.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setProjectId(p.id); setProjectPickerOpen(false); }}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                        p.id === projectId
+                          ? 'bg-gray-50'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <ProjectLogo logoUrl={p.logoUrl} name={p.name} size="xs" />
+                      <div>
+                        <div className={`text-sm ${p.id === projectId ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                          {p.name}
+                        </div>
+                        <div className="text-[11px] text-gray-400">{p.stage || 'No stage'}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Pipeline quick stats */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span className="tabular-nums"><span className="font-semibold text-gray-900">{entries.length}</span> total</span>
+              <span className="tabular-nums"><span className="font-semibold text-gray-900">{activeCount}</span> active</span>
+              {stageSummary.closed > 0 && (
+                <span className="tabular-nums"><span className="font-semibold text-gray-900">{stageSummary.closed}</span> closed</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Kanban */}
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div className="flex gap-2.5 overflow-x-auto pb-4">
         {PIPELINE_STAGES.map((stage) => {
           const stageEntries = entries.filter((e) => e.stage === stage);
           const isDragTarget = draggingOver === stage && dragItem;
           return (
             <div
               key={stage}
-              className={`flex-shrink-0 w-60 rounded-xl p-3 transition-colors ${
-                isDragTarget ? 'bg-blue-50 ring-2 ring-blue-200' : 'bg-gray-50'
+              className={`flex-shrink-0 w-56 rounded-lg p-2.5 transition-colors ${
+                isDragTarget ? 'bg-gray-100 ring-1 ring-gray-300' : 'bg-gray-50/80'
               }`}
               onDragOver={(e) => { e.preventDefault(); setDraggingOver(stage); }}
               onDragLeave={() => setDraggingOver(null)}
               onDrop={() => handleDrop(stage)}
             >
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className={`px-2 py-1 rounded-md text-xs font-medium ${STAGE_COLORS[stage]}`}
-                >
+              <div className="flex items-center justify-between mb-2.5 px-0.5">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
                   {STAGE_LABELS[stage]}
                 </span>
-                <span className="text-xs text-gray-400">{stageEntries.length}</span>
+                <span className="text-[11px] text-gray-400 tabular-nums">{stageEntries.length}</span>
               </div>
 
               <div className="space-y-2 kanban-col">
@@ -221,8 +279,8 @@ export default function PipelinePage() {
                       draggable
                       onDragStart={() => handleDragStart(entry.id)}
                       onClick={() => openDrawer(entry)}
-                      className={`bg-white rounded-lg p-3 border shadow-sm cursor-pointer hover:shadow-md transition-shadow group ${
-                        isOverdue ? 'border-red-200' : 'border-gray-200'
+                      className={`bg-white rounded-md p-3 border cursor-pointer hover:shadow-sm transition-shadow group ${
+                        isOverdue ? 'border-red-200' : 'border-gray-200/80'
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -359,8 +417,8 @@ export default function PipelinePage() {
         const inv = entry ? investorMap.get(entry.investorId) : null;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setMeetingModal(null)} />
-            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setMeetingModal(null)} />
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 border border-gray-200/60">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-bold text-gray-900">Schedule Meeting</h3>

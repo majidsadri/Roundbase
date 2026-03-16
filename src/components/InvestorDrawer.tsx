@@ -5,8 +5,10 @@ import {
   X, Mail, Linkedin, Phone, StickyNote, Calendar, Send, Copy,
   Check, Clock, MapPin, DollarSign,
   Briefcase, Tag, Globe, ArrowRight, Plus, Paperclip, FileText,
-  Video, AlertCircle,
+  Video, AlertCircle, Snowflake, Handshake, Reply, CalendarCheck, HeartHandshake,
+  PenLine,
 } from 'lucide-react';
+import ProjectLogo from './ProjectLogo';
 import {
   Investor, PipelineEntry, Activity, Project, PipelineStage,
   STAGE_LABELS, STAGE_COLORS, DEFAULT_EMAIL_TEMPLATES, EmailTemplate,
@@ -107,14 +109,14 @@ export default function InvestorDrawer({ investor, pipelineEntry: initialEntry, 
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg bg-white shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-lg bg-white shadow-xl border-l border-gray-200/60 flex flex-col">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 truncate">{investor.name}</h2>
+              <h2 className="text-base font-semibold text-gray-900 truncate">{investor.name}</h2>
               <p className="text-sm text-gray-500 truncate">
                 {investor.role ? `${investor.role} at ` : ''}{investor.firm}
               </p>
@@ -145,7 +147,7 @@ export default function InvestorDrawer({ investor, pipelineEntry: initialEntry, 
             {investor.email && (
               <a
                 href={`mailto:${investor.email}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-md hover:bg-gray-800"
               >
                 <Mail size={12} />
                 Email
@@ -156,7 +158,7 @@ export default function InvestorDrawer({ investor, pipelineEntry: initialEntry, 
                 href={investor.linkedin.startsWith('http') ? investor.linkedin : `https://linkedin.com/in/${investor.linkedin}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 text-xs rounded-md hover:bg-gray-50"
               >
                 <Linkedin size={12} />
                 LinkedIn
@@ -164,9 +166,9 @@ export default function InvestorDrawer({ investor, pipelineEntry: initialEntry, 
             )}
             <button
               onClick={() => setTab('outreach')}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-md hover:bg-gray-800"
             >
-              <Send size={12} />
+              <PenLine size={12} />
               Compose
             </button>
 
@@ -188,7 +190,7 @@ export default function InvestorDrawer({ investor, pipelineEntry: initialEntry, 
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100">
+        <div className="flex border-b border-gray-100 px-6">
           {([
             { key: 'profile' as Tab, label: 'Profile' },
             { key: 'outreach' as Tab, label: 'Outreach' },
@@ -197,7 +199,7 @@ export default function InvestorDrawer({ investor, pipelineEntry: initialEntry, 
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
+              className={`px-4 py-2.5 text-[13px] font-medium transition-colors ${
                 tab === t.key
                   ? 'text-gray-900 border-b-2 border-gray-900'
                   : 'text-gray-400 hover:text-gray-600'
@@ -275,9 +277,10 @@ function AddToPipelineButton({
             <button
               key={p.id}
               onClick={() => { onAdd(p.id); setOpen(false); }}
-              className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+              className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
             >
-              {p.name} ({p.stage})
+              <ProjectLogo logoUrl={p.logoUrl} name={p.name} size="xs" />
+              <span>{p.name} ({p.stage})</span>
             </button>
           ))}
         </div>
@@ -688,21 +691,35 @@ function OutreachTab({
 
           {/* Template picker */}
           <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1.5">Template</p>
-            <div className="flex gap-1.5 flex-wrap">
-              {DEFAULT_EMAIL_TEMPLATES.map((tmpl) => (
-                <button
-                  key={tmpl.id}
-                  onClick={() => applyTemplate(tmpl)}
-                  className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
-                    selectedTemplate.id === tmpl.id
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {tmpl.name}
-                </button>
-              ))}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-5 px-5 scrollbar-hide">
+              {DEFAULT_EMAIL_TEMPLATES.map((tmpl) => {
+                const isActive = selectedTemplate.id === tmpl.id;
+                const iconMap: Record<string, React.ReactNode> = {
+                  'snowflake': <Snowflake size={14} />,
+                  'handshake': <Handshake size={14} />,
+                  'reply': <Reply size={14} />,
+                  'calendar-check': <CalendarCheck size={14} />,
+                  'heart-handshake': <HeartHandshake size={14} />,
+                };
+                return (
+                  <button
+                    key={tmpl.id}
+                    onClick={() => applyTemplate(tmpl)}
+                    className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg text-center transition-all min-w-[72px] ${
+                      isActive
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className={isActive ? 'text-white' : 'text-gray-400'}>
+                      {iconMap[tmpl.icon] || <Mail size={14} />}
+                    </span>
+                    <span className={`text-[10px] font-medium leading-tight ${isActive ? 'text-gray-200' : 'text-gray-500'}`}>
+                      {tmpl.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -736,46 +753,56 @@ function OutreachTab({
             </div>
           )}
 
-          {/* To */}
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">To</p>
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-900">{investor.name}</span>
-              {investor.email ? (
-                <span className="text-xs text-gray-400">&lt;{investor.email}&gt;</span>
-              ) : (
-                <span className="text-xs text-red-400">No email — use LinkedIn or add email in profile</span>
-              )}
+          {/* Email compose card */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* To */}
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-gray-50/40">
+              <span className="text-xs text-gray-400 w-10 flex-shrink-0">To</span>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white border border-gray-200 rounded-full text-xs text-gray-800">
+                  <span className="w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center text-[8px] text-white font-bold flex-shrink-0">
+                    {investor.name.charAt(0)}
+                  </span>
+                  {investor.name}
+                </span>
+                {investor.email ? (
+                  <span className="text-[11px] text-gray-400 truncate">{investor.email}</span>
+                ) : (
+                  <span className="text-[11px] text-red-400 flex items-center gap-1">
+                    <AlertCircle size={10} />
+                    No email on file
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Subject */}
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Subject</p>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none"
-            />
-          </div>
+            {/* Subject */}
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+              <span className="text-xs text-gray-400 w-10 flex-shrink-0">Subj</span>
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="flex-1 text-sm text-gray-900 outline-none bg-transparent placeholder-gray-300"
+                placeholder="Email subject..."
+              />
+            </div>
 
-          {/* Body */}
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Body</p>
+            {/* Body */}
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              rows={12}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none resize-none font-mono leading-relaxed"
+              rows={14}
+              className="w-full px-4 py-3 text-sm text-gray-800 outline-none resize-none leading-relaxed bg-white"
+              placeholder="Write your message..."
             />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-1">
             {investor.email && (
               <button
                 onClick={handleOpenGmail}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800"
               >
                 <Send size={14} />
                 Open in Gmail
@@ -783,14 +810,18 @@ function OutreachTab({
             )}
             <button
               onClick={handleCopy}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 border text-sm rounded-lg transition-all ${
+                copied
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
             >
-              {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
               {copied ? 'Copied' : 'Copy'}
             </button>
             <button
               onClick={handleMarkSent}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800"
             >
               <Check size={14} />
               Log Sent

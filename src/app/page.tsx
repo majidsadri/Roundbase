@@ -30,12 +30,12 @@ export default function Home() {
   const [page, setPage] = useState<Page>('dashboard');
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[#f8f8fa]">
       <Sidebar active={page} onChange={setPage} />
-      <main className="flex-1 p-8">
+      <main className="flex-1 px-8 py-7">
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">{TITLES[page]}</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{SUBTITLES[page]}</p>
+          <h1 className="text-lg font-semibold text-gray-900 tracking-tight">{TITLES[page]}</h1>
+          <p className="text-[13px] text-gray-400 mt-0.5">{SUBTITLES[page]}</p>
         </div>
         {page === 'dashboard' && <DashboardPage />}
         {page === 'investors' && <InvestorsPage />}

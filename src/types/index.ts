@@ -63,6 +63,8 @@ export interface Activity {
 export interface EmailTemplate {
   id: string;
   name: string;
+  description: string;
+  icon: string;
   subject: string;
   body: string;
 }
@@ -71,6 +73,8 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'cold-intro',
     name: 'Cold Intro',
+    description: 'First outreach to a new investor',
+    icon: 'snowflake',
     subject: 'Quick intro — {{project_name}}',
     body: `Hi {{investor_name}},
 
@@ -86,6 +90,8 @@ Best,
   {
     id: 'warm-intro',
     name: 'Warm Intro',
+    description: 'Referred by a mutual connection',
+    icon: 'handshake',
     subject: 'Introduction — {{project_name}}',
     body: `Hi {{investor_name}},
 
@@ -101,6 +107,8 @@ Best,
   {
     id: 'follow-up',
     name: 'Follow Up',
+    description: 'Nudge after no response',
+    icon: 'reply',
     subject: 'Following up — {{project_name}}',
     body: `Hi {{investor_name}},
 
@@ -118,6 +126,8 @@ Best,
   {
     id: 'meeting-confirm',
     name: 'Meeting Confirm',
+    description: 'Confirm an upcoming meeting',
+    icon: 'calendar-check',
     subject: 'Confirming our meeting — {{project_name}}',
     body: `Hi {{investor_name}},
 
@@ -138,7 +148,9 @@ Best,
   },
   {
     id: 'post-meeting',
-    name: 'Post Meeting',
+    name: 'Thank You',
+    description: 'Follow up after a meeting',
+    icon: 'heart-handshake',
     subject: 'Great chatting — {{project_name}}',
     body: `Hi {{investor_name}},
 
@@ -171,6 +183,7 @@ export interface Project {
   sectors: string[];
   location: string;
   website: string;
+  logoUrl: string;
   files: ProjectFile[];
   createdAt: string;
 }

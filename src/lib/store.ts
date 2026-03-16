@@ -273,7 +273,7 @@ export function scoreInvestorForProject(
   const reasons: string[] = [];
 
   if (investor.stage && project.stage) {
-    const invStages = investor.stage.toLowerCase().split(/[,;/]+/).map((s) => s.trim());
+    const invStages = investor.stage.toLowerCase().split(/[,;/]+/).map((s) => s.trim()).filter(Boolean);
     const pStage = project.stage.toLowerCase();
     if (invStages.some((s) => s === pStage || s.includes(pStage) || pStage.includes(s))) {
       score += 40;
@@ -282,7 +282,10 @@ export function scoreInvestorForProject(
   }
 
   if (investor.sectors.length > 0 && project.sectors.length > 0) {
-    const invSectors = investor.sectors.map((s) => s.toLowerCase());
+    // Normalize investor sectors: strip "Investors in " prefix
+    const invSectors = investor.sectors.map((s) =>
+      s.toLowerCase().replace(/^investors in\s*/i, '').trim()
+    );
     const matched: string[] = [];
     for (const ps of project.sectors) {
       const psLow = ps.toLowerCase();
@@ -328,16 +331,25 @@ export async function getRecommendedInvestors(
 
   const pipelineIds = new Set(pipeline.map((e) => e.investorId));
 
-  const scored = investors
-    .filter((inv) => !pipelineIds.has(inv.id))
+  const available = investors.filter((inv) => !pipelineIds.has(inv.id));
+
+  const scored = available
     .map((inv) => {
       const { score, reasons } = scoreInvestorForProject(inv, project);
       return { investor: inv, score, reasons };
     })
-    .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  return scored.slice(0, limit);
+  // If we have good matches (score > 0), show those. Otherwise show all available investors.
+  const withScores = scored.filter((r) => r.score > 0);
+  if (withScores.length > 0) {
+    return withScores.slice(0, limit);
+  }
+
+  // Fallback: show all available investors with a "In database" reason
+  return scored
+    .map((r) => r.score === 0 ? { ...r, score: 5, reasons: ['In database'] } : r)
+    .slice(0, limit);
 }
 
 export async function saveParsedInvestors(
