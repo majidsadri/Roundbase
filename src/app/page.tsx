@@ -1,48 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import DashboardPage from '@/components/DashboardPage';
-import InvestorsPage from '@/components/InvestorsPage';
-import PipelinePage from '@/components/PipelinePage';
-import DiscoverPage from '@/components/DiscoverPage';
-import ProjectsPage from '@/components/ProjectsPage';
-
-type Page = 'dashboard' | 'investors' | 'pipeline' | 'discover' | 'projects';
-
-const TITLES: Record<Page, string> = {
-  dashboard: 'Dashboard',
-  investors: 'Investors',
-  pipeline: 'Pipeline',
-  discover: 'Discover Investors',
-  projects: 'Projects',
-};
-
-const SUBTITLES: Record<Page, string> = {
-  dashboard: 'Overview of your fundraising activity',
-  investors: 'Manage your investor database',
-  pipeline: 'Track investor conversations',
-  discover: 'Find and import new investors',
-  projects: 'Manage your fundraising projects',
-};
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import LandingPage from '@/components/LandingPage';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
-  const [page, setPage] = useState<Page>('dashboard');
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
-  return (
-    <div className="flex min-h-screen bg-[#f8f8fa]">
-      <Sidebar active={page} onChange={setPage} />
-      <main className="flex-1 px-8 py-7">
-        <div className="mb-6">
-          <h1 className="text-lg font-semibold text-gray-900 tracking-tight">{TITLES[page]}</h1>
-          <p className="text-[13px] text-gray-400 mt-0.5">{SUBTITLES[page]}</p>
-        </div>
-        {page === 'dashboard' && <DashboardPage />}
-        {page === 'investors' && <InvestorsPage />}
-        {page === 'pipeline' && <PipelinePage />}
-        {page === 'discover' && <DiscoverPage />}
-        {page === 'projects' && <ProjectsPage />}
-      </main>
-    </div>
-  );
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        router.replace('/app');
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [router]);
+
+  if (checking) return null;
+
+  return <LandingPage />;
 }

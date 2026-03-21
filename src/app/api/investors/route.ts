@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth';
 
 function deserializeInvestor(row: Record<string, unknown>) {
   return {
@@ -9,11 +10,20 @@ function deserializeInvestor(row: Record<string, unknown>) {
 }
 
 export async function GET() {
-  const rows = await prisma.investor.findMany({ orderBy: { createdAt: 'desc' } });
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
+  const rows = await prisma.investor.findMany({
+    where: { userId: auth.userId },
+    orderBy: { createdAt: 'desc' },
+  });
   return NextResponse.json(rows.map(deserializeInvestor));
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   const body = await req.json();
 
   // Support bulk create
@@ -22,6 +32,7 @@ export async function POST(req: NextRequest) {
     for (const inv of body) {
       const data = {
         ...inv,
+        userId: auth.userId,
         sectors: JSON.stringify(inv.sectors || []),
       };
       const row = await prisma.investor.upsert({
@@ -36,6 +47,7 @@ export async function POST(req: NextRequest) {
 
   const data = {
     ...body,
+    userId: auth.userId,
     sectors: JSON.stringify(body.sectors || []),
   };
 

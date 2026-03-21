@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { requireAuth } from '@/lib/auth';
+import { uploadToStorage } from '@/lib/supabase/storage';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   const projectId = formData.get('projectId') as string;
@@ -13,31 +16,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'file and projectId required' }, { status: 400 });
   }
 
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads', projectId);
-  await mkdir(uploadsDir, { recursive: true });
+  const project = await prisma.project.findFirst({ where: { id: projectId, userId: auth.userId } });
+  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const filename = `${timestamp}-${safeName}`;
-  const filePath = path.join(uploadsDir, filename);
+  try {
+    const timestamp = Date.now();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `${auth.userId}/${projectId}/${timestamp}-${safeName}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
+    const { publicUrl } = await uploadToStorage(
+      storagePath,
+      buffer,
+      file.type || 'application/octet-stream',
+    );
 
-  const publicPath = `/uploads/${projectId}/${filename}`;
+    const record = await prisma.projectFile.create({
+      data: {
+        projectId,
+        name: file.name,
+        type: fileType,
+        filePath: storagePath,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
 
-  const record = await prisma.projectFile.create({
-    data: {
-      projectId,
-      name: file.name,
-      type: fileType,
-      filePath: publicPath,
-      uploadedAt: new Date().toISOString(),
-    },
-  });
-
-  return NextResponse.json({
-    ...record,
-    dataUrl: record.filePath, // backward compat
-  });
+    return NextResponse.json({ ...record, dataUrl: publicUrl });
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }

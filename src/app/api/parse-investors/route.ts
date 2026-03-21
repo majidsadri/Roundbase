@@ -11,23 +11,31 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = `You are a data parser. Extract structured investor data from raw pasted text (typically from NFX Signal investor tables).
+  const systemPrompt = `You are a data parser. Extract structured investor data from raw pasted text. The data may come from:
+- NFX Signal investor tables
+- LinkedIn Sales Navigator exports
+- Crunchbase investor lists
+- Spreadsheet/CSV copy-paste (tab or comma separated)
+- AngelList, PitchBook, or any other investor database
+- Free-form text with investor information
 
 Return a JSON array of investor objects with these fields:
 - name: string (investor's full name)
 - firm: string (VC firm name)
 - role: string (e.g. "Managing Partner", "General Partner")
-- introStrength: string (e.g. "n/a", "Strong", etc.)
-- checkSize: string (e.g. "$1M")
-- checkRange: string (e.g. "$750K - $1.3M")
+- introStrength: string (e.g. "n/a", "Strong", etc. — use "n/a" if not available)
+- checkSize: string (e.g. "$1M" — use empty string if not available)
+- checkRange: string (e.g. "$750K - $1.3M" — use empty string if not available)
 - locations: string[] (e.g. ["Los Angeles (CA)", "San Francisco (CA)"])
-- categories: string[] (deduplicated, e.g. ["SMB Software (Seed)", "AI (Pre-seed)"])
+- categories: string[] (deduplicated sectors and stages, e.g. ["SMB Software (Seed)", "AI (Pre-seed)"])
+
+For CSV/tabular data, intelligently map column headers to the fields above. For LinkedIn data, map "Title" → role, "Company" → firm, etc.
 
 Project context for relevance scoring:
 - Project: ${projectDescription}
 - Stage: ${projectStage}
 
-Parse ALL investors from the text. Deduplicate categories. Return ONLY valid JSON array, no markdown fences.`;
+Parse ALL investors from the text. Deduplicate entries by name. Return ONLY valid JSON array, no markdown fences.`;
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {

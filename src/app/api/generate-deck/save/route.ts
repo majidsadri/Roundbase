@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { requireAuth } from '@/lib/auth';
+import { uploadToStorage } from '@/lib/supabase/storage';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { projectId, htmlContent, fileName } = await req.json();
 
@@ -11,32 +14,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'projectId and htmlContent required' }, { status: 400 });
     }
 
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', projectId);
-    await mkdir(uploadsDir, { recursive: true });
+    const project = await prisma.project.findFirst({ where: { id: projectId, userId: auth.userId } });
+    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const timestamp = Date.now();
     const safeName = (fileName || 'pitch-deck').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filename = `${timestamp}-${safeName}.html`;
-    const filePath = path.join(uploadsDir, filename);
+    const storagePath = `${auth.userId}/${projectId}/${timestamp}-${safeName}.html`;
+    const buffer = Buffer.from(htmlContent, 'utf-8');
 
-    await writeFile(filePath, htmlContent, 'utf-8');
-
-    const publicPath = `/uploads/${projectId}/${filename}`;
+    const { publicUrl } = await uploadToStorage(storagePath, buffer, 'text/html');
 
     const record = await prisma.projectFile.create({
       data: {
         projectId,
         name: `${safeName}.html`,
         type: 'deck',
-        filePath: publicPath,
+        filePath: storagePath,
         uploadedAt: new Date().toISOString(),
       },
     });
 
-    return NextResponse.json({
-      ...record,
-      dataUrl: record.filePath,
-    });
+    return NextResponse.json({ ...record, dataUrl: publicUrl });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

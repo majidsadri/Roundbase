@@ -39,7 +39,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
 export default function PipelinePage() {
   const [entries, setEntries] = useState<PipelineEntry[]>([]);
   const [investors, setInvestors] = useState<Investor[]>([]);
-  const [projectId, setProjectId] = useState('jeeb');
+  const [projectId, setProjectId] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [addingTo, setAddingTo] = useState<PipelineStage | null>(null);
   const [selectedInvestorId, setSelectedInvestorId] = useState('');
@@ -52,7 +52,18 @@ export default function PipelinePage() {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [activityCounts, setActivityCounts] = useState<Map<string, number>>(new Map());
 
+  // Load projects first, then auto-select the first one
+  useEffect(() => {
+    getProjects().then((proj) => {
+      setProjects(proj);
+      if (proj.length > 0 && !projectId) {
+        setProjectId(proj[0].id);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const reload = useCallback(async () => {
+    if (!projectId) return;
     const [pipe, inv, proj] = await Promise.all([
       getPipeline(projectId),
       getInvestors(),
@@ -179,8 +190,8 @@ export default function PipelinePage() {
   return (
     <div>
       {/* Project selector + Pipeline stats bar */}
-      <div className="bg-white rounded-lg border border-gray-200/60 px-4 py-3 mb-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-xl px-4 py-3 mb-4" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {/* Project picker */}
           <div className="relative">
             <button
@@ -205,7 +216,7 @@ export default function PipelinePage() {
             {projectPickerOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setProjectPickerOpen(false)} />
-                <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[220px]">
+                <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200/60 rounded-xl py-1 z-20 min-w-[220px]" style={{ boxShadow: 'var(--shadow-elevated)' }}>
                   {projects.map((p) => (
                     <button
                       key={p.id}
@@ -251,7 +262,7 @@ export default function PipelinePage() {
           return (
             <div
               key={stage}
-              className={`flex-shrink-0 w-56 rounded-lg p-2.5 transition-colors ${
+              className={`flex-shrink-0 w-44 sm:w-56 rounded-lg p-2.5 transition-colors ${
                 isDragTarget ? 'bg-gray-100 ring-1 ring-gray-300' : 'bg-gray-50/80'
               }`}
               onDragOver={(e) => { e.preventDefault(); setDraggingOver(stage); }}
@@ -279,9 +290,12 @@ export default function PipelinePage() {
                       draggable
                       onDragStart={() => handleDragStart(entry.id)}
                       onClick={() => openDrawer(entry)}
-                      className={`bg-white rounded-md p-3 border cursor-pointer hover:shadow-sm transition-shadow group ${
-                        isOverdue ? 'border-red-200' : 'border-gray-200/80'
+                      className={`bg-white rounded-lg p-3 cursor-pointer transition-all group ${
+                        isOverdue ? 'border border-red-200' : ''
                       }`}
+                      style={{ boxShadow: 'var(--shadow-card)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-card-hover)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-card)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                     >
                       <div className="flex items-start gap-2">
                         <GripVertical
@@ -418,7 +432,7 @@ export default function PipelinePage() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setMeetingModal(null)} />
-            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 border border-gray-200/60">
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-[calc(100%-2rem)] sm:max-w-md p-5 sm:p-6 border border-gray-200/60 mx-4 sm:mx-0">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-bold text-gray-900">Schedule Meeting</h3>

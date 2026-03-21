@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Search, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Send } from 'lucide-react';
+import { Plus, Search, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Send, Building2, MapPin, DollarSign } from 'lucide-react';
 import { Investor } from '@/types';
 import { getInvestors, saveInvestor, deleteInvestor, importInvestorsCSV } from '@/lib/store';
 import InvestorModal from './InvestorModal';
@@ -118,14 +118,14 @@ export default function InvestorsPage() {
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="flex-1 relative">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex-1 min-w-[180px] relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search investors..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+            className="w-full pl-9 pr-3 py-2.5 md:py-2 border border-gray-200 rounded-lg text-sm bg-white"
           />
         </div>
 
@@ -133,38 +133,128 @@ export default function InvestorsPage() {
           <button
             onClick={handleBulkDelete}
             disabled={deleting}
-            className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2.5 md:py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
           >
             <Trash2 size={14} />
-            {deleting ? 'Deleting...' : `Delete ${selected.size} selected`}
+            {deleting ? 'Deleting...' : `Delete ${selected.size}`}
           </button>
         ) : (
           <>
             <input ref={fileRef} type="file" accept=".csv" onChange={handleCSV} className="hidden" />
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 bg-white"
+              className="flex items-center gap-1.5 px-3 py-2.5 md:py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 bg-white"
             >
               <Upload size={14} />
-              Import
+              <span className="hidden sm:inline">Import</span>
             </button>
             <button
               onClick={() => {
                 setEditing(null);
                 setModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800"
+              className="flex items-center gap-1.5 px-3 py-2.5 md:py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800"
             >
               <Plus size={14} />
-              Add Investor
+              <span className="hidden sm:inline">Add Investor</span>
+              <span className="sm:hidden">Add</span>
             </button>
           </>
         )}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200/60 overflow-hidden">
-        <table className="w-full text-sm">
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-2">
+        {someSelected && (
+          <div className="flex items-center justify-between px-1 pb-1">
+            <button onClick={toggleSelectAll} className="text-xs text-gray-500 font-medium">
+              {allFilteredSelected ? 'Deselect all' : 'Select all'}
+            </button>
+            <span className="text-xs text-gray-400">{filtered.length} investors</span>
+          </div>
+        )}
+        {filtered.length === 0 ? (
+          <div className="py-12 text-center text-gray-400 text-sm">
+            {investors.length === 0
+              ? 'No investors yet. Add one or import a CSV.'
+              : 'No matching investors.'}
+          </div>
+        ) : (
+          filtered.map((inv) => (
+            <div
+              key={inv.id}
+              onClick={() => setDrawerInvestor(inv)}
+              className={`bg-white rounded-lg border p-4 active:bg-gray-50 transition-colors ${
+                selected.has(inv.id) ? 'border-gray-400 bg-gray-50' : 'border-gray-200/60'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-semibold text-sm">{inv.name.charAt(0)}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{inv.name}</p>
+                      <p className="text-xs text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                        <Building2 size={11} className="text-gray-400 flex-shrink-0" />
+                        {inv.role ? `${inv.role}, ` : ''}{inv.firm}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => { setEditing(inv); setModalOpen(true); }}
+                        className="p-2 text-gray-400 active:text-gray-700 rounded-lg"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(inv.id)}
+                        onChange={() => toggleSelect(inv.id)}
+                        className="rounded border-gray-300 accent-gray-900 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2.5">
+                    {inv.checkSize && (
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <DollarSign size={11} className="text-gray-400" />
+                        {inv.checkSize}
+                      </span>
+                    )}
+                    {inv.location && (
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <MapPin size={11} className="text-gray-400" />
+                        {inv.location}
+                      </span>
+                    )}
+                  </div>
+
+                  {inv.sectors.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {inv.sectors.slice(0, 3).map((s) => (
+                        <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px]">
+                          {s}
+                        </span>
+                      ))}
+                      {inv.sectors.length > 3 && (
+                        <span className="text-[11px] text-gray-400">+{inv.sectors.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-lg border border-gray-200/60 overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b border-gray-100">
               <th className="w-10 px-4 py-2.5">
@@ -275,7 +365,7 @@ export default function InvestorsPage() {
         </table>
       </div>
 
-      <p className="text-xs text-gray-400 mt-2 tabular-nums">{filtered.length} investors</p>
+      <p className="text-xs text-gray-400 mt-2 tabular-nums hidden md:block">{filtered.length} investors</p>
 
       {modalOpen && (
         <InvestorModal

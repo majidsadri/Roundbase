@@ -38,6 +38,33 @@ export interface ParsedInvestor {
   matchReasons?: string[];
 }
 
+export type CommitStatus = '' | 'interested' | 'verbal' | 'soft_circle' | 'committed' | 'wired';
+
+export const COMMIT_STATUS_LABELS: Record<CommitStatus, string> = {
+  '': 'None',
+  interested: 'Interested',
+  verbal: 'Verbal',
+  soft_circle: 'Soft Circle',
+  committed: 'Committed',
+  wired: 'Wired',
+};
+
+export const COMMIT_STATUS_COLORS: Record<CommitStatus, string> = {
+  '': 'bg-gray-100 text-gray-400',
+  interested: 'bg-amber-50 text-amber-700',
+  verbal: 'bg-blue-50 text-blue-700',
+  soft_circle: 'bg-purple-50 text-purple-700',
+  committed: 'bg-green-50 text-green-700',
+  wired: 'bg-green-100 text-green-800',
+};
+
+export interface FeedbackEntry {
+  id: string;
+  date: string;
+  sentiment: 'positive' | 'neutral' | 'concern';
+  text: string;
+}
+
 export interface PipelineEntry {
   id: string;
   projectId: string;
@@ -48,6 +75,9 @@ export interface PipelineEntry {
   nextFollowup: string;
   meetingDate?: string;
   meetingNotes?: string;
+  commitAmount?: string;
+  commitStatus?: CommitStatus;
+  feedback?: string; // JSON string of FeedbackEntry[]
   createdAt: string;
 }
 
@@ -73,9 +103,9 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
   {
     id: 'cold-intro',
     name: 'Cold Intro',
-    description: 'First outreach to a new investor',
+    description: 'AI-personalized first outreach',
     icon: 'snowflake',
-    subject: 'Quick intro — {{project_name}}',
+    subject: '{{project_name}} — {{stage}} in {{sectors}}',
     body: `Hi {{investor_name}},
 
 I'm reaching out because {{firm}} invests in {{sectors}} at the {{stage}} stage — which is exactly where we are with {{project_name}}.
@@ -92,14 +122,31 @@ Best,
     name: 'Warm Intro',
     description: 'Referred by a mutual connection',
     icon: 'handshake',
-    subject: 'Introduction — {{project_name}}',
+    subject: 'Intro via {{mutual_connection}} — {{project_name}}',
     body: `Hi {{investor_name}},
 
-{{mutual_connection}} suggested I reach out to you given {{firm}}'s focus on {{sectors}}.
+{{mutual_connection}} suggested I reach out — they thought {{project_name}} would be a strong fit given {{firm}}'s focus on {{sectors}}.
 
-We're building {{project_name}} — {{project_description}}
+{{project_description}}
 
-We're currently raising our {{stage}} round ({{raise_amount}}) and I'd love to get your thoughts. Would you have time for a brief call?
+We're raising our {{stage}} round ({{raise_amount}}) and I'd love to get your take. Would you have time for a brief call this week?
+
+Best,
+{{sender_name}}`,
+  },
+  {
+    id: 'thesis-fit',
+    name: 'Thesis Fit',
+    description: 'They backed a competitor or adjacent co',
+    icon: 'reply',
+    subject: 'Building on the {{sectors}} thesis — {{project_name}}',
+    body: `Hi {{investor_name}},
+
+I noticed {{firm}} has conviction in the {{sectors}} space — which is exactly where we're building.
+
+{{project_name}} — {{project_description}}
+
+We're raising {{raise_amount}} at the {{stage}} stage. I think the portfolio synergies could be interesting — would you be open to a 15-min call?
 
 Best,
 {{sender_name}}`,
@@ -107,41 +154,18 @@ Best,
   {
     id: 'follow-up',
     name: 'Follow Up',
-    description: 'Nudge after no response',
-    icon: 'reply',
-    subject: 'Following up — {{project_name}}',
+    description: 'Nudge with new traction',
+    icon: 'calendar-check',
+    subject: 'Quick update — {{project_name}}',
     body: `Hi {{investor_name}},
 
-I wanted to follow up on my previous note about {{project_name}}. Since we last connected, we've made some great progress:
+Wanted to circle back on {{project_name}} with a few updates since my last note:
 
 - [Update 1]
 - [Update 2]
 - [Update 3]
 
-Would love to find a time to chat. Let me know what works for you.
-
-Best,
-{{sender_name}}`,
-  },
-  {
-    id: 'meeting-confirm',
-    name: 'Meeting Confirm',
-    description: 'Confirm an upcoming meeting',
-    icon: 'calendar-check',
-    subject: 'Confirming our meeting — {{project_name}}',
-    body: `Hi {{investor_name}},
-
-Looking forward to our meeting on {{meeting_date}}. Just confirming the time works for you.
-
-To give you a quick preview of what we'll cover:
-
-{{project_name}} — {{project_description}}
-
-We're raising our {{stage}} round ({{raise_amount}}) and would love to walk you through our progress and vision.
-
-I'll have our deck and key materials ready to share. Let me know if there's anything specific you'd like me to prepare.
-
-See you then!
+We're making real progress and the round is coming together. Would love to find 15 minutes to walk you through where we are.
 
 Best,
 {{sender_name}}`,
@@ -151,12 +175,12 @@ Best,
     name: 'Thank You',
     description: 'Follow up after a meeting',
     icon: 'heart-handshake',
-    subject: 'Great chatting — {{project_name}}',
+    subject: 'Great chatting — {{project_name}} next steps',
     body: `Hi {{investor_name}},
 
-Thank you for taking the time to meet today. I really enjoyed our conversation about {{project_name}} and your perspective on the {{sectors}} space.
+Thank you for the time today. I really enjoyed our conversation about {{project_name}} and your perspective on the {{sectors}} space.
 
-As discussed, I'm attaching our deck for your review. Happy to answer any follow-up questions or connect you with our team.
+As discussed, I'm sharing our deck for your review. Happy to answer any follow-up questions or connect you with our team.
 
 Looking forward to next steps.
 

@@ -5,6 +5,12 @@ export function uid(): string {
 }
 
 async function safeJson<T>(res: Response, fallback: T): Promise<T> {
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+    return fallback;
+  }
   try {
     const text = await res.text();
     if (!text) return fallback;
@@ -82,6 +88,10 @@ export async function saveProject(project: Project): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(project),
   });
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  await fetch(`/api/projects/${id}`, { method: 'DELETE' });
 }
 
 // ─── File Upload ──────────────────────────────────────────────────

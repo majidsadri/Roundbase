@@ -9,6 +9,7 @@ datasource db {
 
 model Investor {
   id        String   @id
+  userId    String   @default("")
   name      String
   firm      String   @default("")
   role      String   @default("")
@@ -25,10 +26,13 @@ model Investor {
   createdAt String
 
   pipelineEntries PipelineEntry[]
+
+  @@index([userId])
 }
 
 model Project {
   id              String  @id
+  userId          String  @default("")
   name            String
   description     String  @default("")
   stage           String  @default("")
@@ -43,6 +47,8 @@ model Project {
 
   files           ProjectFile[]
   pipelineEntries PipelineEntry[]
+
+  @@index([userId])
 }
 
 model ProjectFile {
@@ -57,20 +63,52 @@ model ProjectFile {
 }
 
 model PipelineEntry {
-  id           String @id
-  projectId    String
-  investorId   String
-  stage        String // PipelineStage
-  notes        String @default("")
-  lastContact  String @default("")
-  nextFollowup String @default("")
-  meetingDate  String?
-  meetingNotes String?
-  createdAt    String
+  id            String  @id
+  userId        String  @default("")
+  projectId     String
+  investorId    String
+  stage         String  // PipelineStage
+  notes         String  @default("")
+  lastContact   String  @default("")
+  nextFollowup  String  @default("")
+  meetingDate   String?
+  meetingNotes  String?
+  commitAmount  String  @default("")
+  commitStatus  String  @default("") // interested, verbal, soft_circle, committed, wired
+  feedback      String  @default("") // JSON array of meeting feedback
+  createdAt     String
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   investor   Investor   @relation(fields: [investorId], references: [id], onDelete: Cascade)
   activities Activity[]
+
+  @@index([userId])
+}
+
+model PublicFirm {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String  @default("")
+  logoUrl     String  @default("")
+  website     String  @default("")
+  linkedin    String  @default("")
+  hq          String  @default("")
+  stages      String  @default("[]")
+  sectors     String  @default("[]")
+  checkMin    String  @default("")
+  checkMax    String  @default("")
+  fundSize    String  @default("")
+  portfolio   String  @default("[]")
+  founded     String  @default("")
+  teamSize    String  @default("")
+  type        String  @default("vc")
+  featured    Boolean @default(false)
+  createdAt   String
+  updatedAt   String
+
+  @@index([slug])
+  @@index([type])
 }
 
 model Activity {
